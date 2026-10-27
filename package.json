@@ -1,0 +1,27 @@
+{
+  "name": "hcb-terra-client",
+  "version": "1.0.0",
+  "description": "A hackclub terra client, but OSS",
+  "homepage": "https://github.com/s0urce-c0de/hcb-terra-client#readme",
+  "bugs": {
+    "url": "https://github.com/s0urce-c0de/hcb-terra-client/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/s0urce-c0de/hcb-terra-client.git"
+  },
+  "license": "0BSD",
+  "author": "s0urce-c0de",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@colyseus/sdk": "^0.18.8",
+    "webpack": "^5.112.2",
+    "webpack-cli": "^7.2.3"
+  },
+  "allowScripts": {
+    "msgpackr-extract@3.0.4": true
+  }
+}
