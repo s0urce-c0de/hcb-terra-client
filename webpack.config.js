@@ -1,22 +1,23 @@
-import path from 'path';
-import { fileURLToPath } from 'url';
-import HtmlWebpackPlugin from 'html-webpack-plugin';
-import TerserPlugin from 'terser-webpack-plugin';
+import path from "path";
+import { fileURLToPath } from "url";
+import HtmlWebpackPlugin from "html-webpack-plugin";
+import TerserPlugin from "terser-webpack-plugin";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default {
-  mode: 'development',
+  mode: "development",
   entry: {
-    main: './src/main.js',
-    colyseus: '@colyseus/sdk'
+    main: "./src/main.js",
+    colyseussdk: "@colyseus/sdk",
+    pixi: "pixi.js"
   },
   output: {
-    path: path.resolve(__dirname, 'dist'),
-    filename: '[name].bundle.js',
+    path: path.resolve(__dirname, "dist"),
+    filename: "[name].bundle.js",
     clean: true,
   },
-  devtool: 'source-map',
+  devtool: "source-map",
   optimization: {
     minimizer: [
       new TerserPlugin({
@@ -30,18 +31,28 @@ export default {
   },
   plugins: [
     new HtmlWebpackPlugin({
-      template: './src/index.html',
+      template: "./src/index.html",
     }),
   ],
   devServer: {
+    client: false, 
+    webSocketServer: false, 
+    hot: false,
+    liveReload: false,
     proxy: [
       {
+        context: ["/assets/"],
+        target: "https://terra.hackclub.com/",
+        changeOrigin: true,
+        secure: true,
+      },
+      {
         context: (pathname) => {
-          if (pathname === '/ws'||pathname.endsWith('.js')||pathname.endsWith('.ico'))return false;
+          if (pathname === "/ws"||pathname.endsWith(".js")||pathname.endsWith(".ico"))return false;
 
           return true;
         },
-        target: 'https://game.terra.hackclub.com/',
+        target: "https://game.terra.hackclub.com/",
         changeOrigin: true,
         secure: true,
         ws: true,

@@ -1,25 +1,14 @@
-import { Client, Callbacks, MatchMakeError } from "@colyseus/sdk";
+import { Client, Callbacks } from "@colyseus/sdk";
 import env from "./env.js";
+import setupPixi from "./setupPixi.js";
+import { Graphics, GraphicsContext } from "pixi.js";
+
 
 if(location.href.slice(0, 4)!="http")throw new Error("This is not supported on non HTTP(S) pages!");
 
-const client = new Client("ws"+location.href.slice(4));
+const client = new Client("ws"+location.origin.slice(4));
 
-// window.test = await fetch("https://game.terra.hackclub.com/matchmake/joinOrCreate/world", {
-//     "headers": {
-//         "Content-Type": "application/json"
-//     },
-//     "body": JSON.stringify({
-//         token: env.token,
-//         levelId: "town-square",
-//         protocol: 2
-//     }),
-//     "method": "POST"
-// });
-
-// client.auth.token = env.token;
-
-// Join or create a room
+const {app, world} = await setupPixi(fetch('/assets/levels/town-square.json'));
 
 let room;
 
@@ -36,28 +25,39 @@ try {
     }
     throw err;
 } 
-// Get state callbacks handler
+
 const callbacks = Callbacks.get(room);
- 
+
+const RADIUS = 0.25;
+const meDot = new GraphicsContext().circle(0, 0, RADIUS).fill(0x0000ff);
+const youDot = new GraphicsContext().circle(0, 0, RADIUS).fill(0xff0000);
+
+const dots = new Map();
+
 // Listen for entities being added to a collection
 callbacks.onAdd("players", (player, sessionId) => {
-    console.log("Player joined:", sessionId);
+    if (sessionId === room.sessionId) console.log("me:", player.x, player.z);
+    const dot = new Graphics(sessionId == room.sessionId ? meDot : youDot);
+    dot.position.set(player.x, player.z);
+    world.addChild(dot);
+    dots.set(sessionId, dot);
+
+    console.log("Player added", player.x, player.z)
  
-    // Listen for changes on nested properties
-    callbacks.listen(player, "x", (currentX, previousX) => {
-        console.log("Player", sessionId, "x:", currentX);
-    });
+    callbacks.listen(player, "x", x => dot.x = x);
+    callbacks.listen(player, "z", z => dot.z = z);
 });
  
-// Listen for entities being removed from a collection
 callbacks.onRemove("players", (player, sessionId) => {
-    console.log("Player left:", sessionId);
+    dots.get(sessionId)?.destroy();
+    dots.delete(sessionId);
 });
  
-// Send a message to the server
-room.send("move", { x: 10, y: 20 });
+room.onStateChange.once((state) => {
+    console.log(state.toJSON());
+});
+
  
-// Listen for messages from the server
 room.onMessage("chat", (message) => {
     console.log("Chat:", message);
 });

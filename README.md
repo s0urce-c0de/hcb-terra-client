@@ -11,3 +11,8 @@ I don't have a way to test all the features. Probably just move around style cli
 # Set Up
 
 First, copy env-example.js into src/env.js. Then fill it out with appropriate information. Then `npm ci && npm run serve`.
+
+
+### notes
+
+https://terra.hackclub.com/assets/levels/farm-island.json

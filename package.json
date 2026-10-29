@@ -20,6 +20,7 @@
   "dependencies": {
     "@colyseus/sdk": "0.18.7",
     "html-webpack-plugin": "^5.6.8",
+    "pixi.js": "^8.22.0",
     "terser-webpack-plugin": "^5.6.1",
     "webpack": "^5.112.2",
     "webpack-cli": "^7.2.3"
