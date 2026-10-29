@@ -6,3 +6,8 @@ This is a custom terra (OMG! TERRA REFERENCE!!!!!) client that is open source. T
 # THIS WILL NOT SUPPORT ALL FEATURES
 
 I don't have a way to test all the features. Probably just move around style client.
+
+
+# Set Up
+
+First, copy env-example.js into src/env.js. Then fill it out with appropriate information. Then `npm ci && npm run serve`.
