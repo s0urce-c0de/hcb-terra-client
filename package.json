@@ -14,6 +14,8 @@
   "author": "s0urce-c0de",
   "type": "module",
   "scripts": {
+    "format-check": "npx prettier --check src/",
+    "format": "npx prettier --write src/",
     "build": "webpack build -c webpack.config.js",
     "serve": "webpack serve -c webpack.config.js"
   },
@@ -29,6 +31,7 @@
     "msgpackr-extract@3.0.4": true
   },
   "devDependencies": {
+    "prettier": "^3.9.10",
     "webpack-dev-server": "^6.1.0"
   }
 }
