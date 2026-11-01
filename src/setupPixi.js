@@ -43,6 +43,7 @@ function autoResize(app, world, cfg) {
  * @param {!Graphics} bounds The bounds object 
  * @param {!LazyAsyncGetTerraMap} maps 
  * @param {string} mapName 
+ * @returns {void}
  */
 function updateMap(autoResizeBinded, drawCfg, bounds, maps, mapName) {
     const { width: worldW, height: worldH, boundsPolygon } = maps.get(mapName);

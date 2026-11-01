@@ -10,12 +10,16 @@ const terraMaps = new LazyAsyncGetTerraMap();
 
 if (location.href.slice(0, 4) != "http") throw new Error("This is not supported on non HTTP(S) pages!");
 
-(async function(){
-
 const client = new Client("ws" + location.origin.slice(4));
 
 const { app, world, updateMap } = await setupPixi(terraMaps);
 
+/**
+ * 
+ * @param {!Room} room 
+ * @param {!DotMap} dots
+ * @returns {void} 
+ */
 function bindRoomListeners(room, dots) {
     const RADIUS = 0.25;
     const meDot = new GraphicsContext().circle(0, 0, RADIUS).fill(0x0000ff);
@@ -107,6 +111,14 @@ function bindRoomListeners(room, dots) {
     // room.onMessage("forceTeleport");
 }
 
+/**
+ * 
+ * @param {!Client} client 
+ * @param {string} roomName 
+ * @param {!Object} options 
+ * @param {number} timeOutMs 
+ * @returns {!Promise<!Room>}
+ */
 async function joinOnce(client, roomName, options, timeOutMs) {
     const { roomId, ...joinOpts } = options;
     let timer;
@@ -124,6 +136,11 @@ async function joinOnce(client, roomName, options, timeOutMs) {
     }
 }
 
+/**
+ * 
+ * @param {string} token JWT Token 
+ * @returns {string} The userid
+ */
 function token2uID(token) {
     try {
         const decoded = JSON.parse(atob(token.split(".")[1].replaceAll("-", "+").replaceAll("_", "/")));
@@ -133,14 +150,22 @@ function token2uID(token) {
     }
 }
 
-function joinWorld(client, roomName, options, timeOutMs = 10_000) {
+/**
+ * 
+ * @param {!Client} client 
+ * @param {string} roomName 
+ * @param {!Object} options 
+ * @param {number=} timeOutMs 
+ * @returns {!Promise<!Room>}
+ */
+async function joinWorld(client, roomName, options, timeOutMs = 10_000) {
     try {
-        return joinOnce(client, roomName, options, timeOutMs);
+        return await joinOnce(client, roomName, options, timeOutMs);
     } catch (err) {
         if((error?.code === 4411 || error?.message?.includes("farm_owner_missing")) && !options.farmOwnerId) {
             const farmOwnerId = token2uID(options.token);
             if (farmOwnerId) {
-                return joinOnce(
+                return await joinOnce(
                     client,
                     roomName,
                     { ...options, farmOwnerId },
@@ -202,4 +227,3 @@ callbacks.listen("levelId", updateMap);
 // room.onMessage("chat", message => {
 //     console.log("Chat:", message);
 // });
-})();
