@@ -126,7 +126,7 @@ class ColyseusManager {
         const speed = sprinting ? terraCfg.PLAYER_SPRINT_SPEED : terraCfg.PLAYER_SPEED;
 
         meDot.x += h * speed * terraCfg.FIXED_DT;
-        meDot.z += v * speed * terraCfg.FIXED_DT;
+        meDot.y += v * speed * terraCfg.FIXED_DT;
 
         const now = performance.now();
         if (now - this.lastSendWhen >= (1000 / terraCfg.CLIENT_CMD_RATE)) {
@@ -136,7 +136,7 @@ class ColyseusManager {
                 y: v,
                 seq: this.seq,
                 posX: meDot.x,
-                posZ: meDot.z,
+                posZ: meDot.y,
                 sprinting
             })
         }
@@ -146,11 +146,11 @@ class ColyseusManager {
         const meDot = this.dots?.get(this.room?.sessionId);
         if(!meDot) return;
 
-        const dErr = Math.hypot(servX - meDot.x, servZ - meDot.z);
+        const dErr = Math.hypot(servX - meDot.x, servZ - meDot.y);
 
         if (dErr > terraCfg.POSITION_SOFT_THRESHOLD) {
             meDot.x = servX;
-            meDot.z = servZ;
+            meDot.y = servZ;
         }
     }
 
@@ -231,7 +231,7 @@ class ColyseusManager {
             console.log("player join", player.x, player.z);
 
             this.callbacks.listen(player, "x", isMe ? (x => this.fixLoc(x, player.z)) : (x => (dot.x = x)));
-            this.callbacks.listen(player, "z", isMe ? (z => this.fixLoc(player.x, z)) : (z => (dot.z = z)));
+            this.callbacks.listen(player, "z", isMe ? (z => this.fixLoc(player.x, z)) : (z => (dot.y = z)));
         });
         // this.callbacks.onChange("players");
         this.callbacks.onRemove("players", (player, sessionId) => {
