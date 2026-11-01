@@ -128,6 +128,43 @@ function bindRoomListeners(room, dots) {
     // room.onMessage("positionCorrection");
     // room.onMessage("forceTeleport");
 }
+
+async function joinOnce(client, roomName, options, timeOutMs) {
+    const { roomId, ...joinOpts } = options;
+    let timer;
+    const joinProm = roomId ? client.joinRoomById(roomId, {...joinOpts, friendJoin: true, protocol: 2}) : client.joinOrCreate(roomName, {...joinOpts, protocol: 2})
+    const timeout = new Promise((_, r)=>(timer = setTimeout(() => r(new Error("timeout")), timeOutMs)));
+    try {
+        const room = await Promise.race([joinProm, timeout]);
+        // add sessionid sotorage
+        return room;
+    } catch (err) {
+        joinProm.then(r => r.leave()).catch(_=>_);
+        throw err;
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+function token2uID(token) {
+    try {
+        const decoded = JSON.parse(atob(token.split(".")[1].replaceAll("-", "+").replaceAll("_", "/")));
+        return decoded.userId ?? null;
+    } catch {
+        return null;
+    }
+}
+
+function joinWorld(client, roomName, options, timeOutMs = 10_000) {
+    try {
+        joinOnce(client, roomName, options, timeOutMs);
+    } catch (err) {
+        if((error?.code === 4411 || error?.message?.includes("farm_owner_missing")) && !options.farmOwnerId) {
+            const farmOwnerId = 
+        }
+    }
+}
+
 let room;
 
 try {
