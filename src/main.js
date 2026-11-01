@@ -3,36 +3,14 @@ import env from "./env.js";
 import setupPixi from "./setupPixi.js";
 import { Graphics, GraphicsContext } from "pixi.js";
 import { DotMap } from "./extrastuff.js";
+import { LazyAsyncGetTerraMap } from "./types.js";
 
-
-const terraMaps = {};
-
-for (let loc of ["town-square", "farm-island", "intro-scene"])
-    Object.defineProperty(terraMaps, loc, {
-        get() {
-            const xhr = new XMLHttpRequest();
-            xhr.open("GET", `/assets/levels/${loc}.json`, false); // no async since no async in getter. would have blocked map draw anyways
-            // maybe requestidle callback
-            xhr.send(null);
-
-            if (xhr.status !== 200) throw new Error(`Map for ${loc} not found`);
-
-            const res = Object.freeze(JSON.parse(xhr.responseText));
-
-            Object.defineProperty(this, loc, {
-                value: res,
-                writable: false,
-                configurable: false,
-                enumerable: true,
-            });
-
-            return res;
-        },
-        configurable: true,
-        enumerable: true,
-    });
+/** @type {LazyAsyncGetTerraMap} */
+const terraMaps = new LazyAsyncGetTerraMap();
 
 if (location.href.slice(0, 4) != "http") throw new Error("This is not supported on non HTTP(S) pages!");
+
+(async function(){
 
 const client = new Client("ws" + location.origin.slice(4));
 
@@ -157,11 +135,20 @@ function token2uID(token) {
 
 function joinWorld(client, roomName, options, timeOutMs = 10_000) {
     try {
-        joinOnce(client, roomName, options, timeOutMs);
+        return joinOnce(client, roomName, options, timeOutMs);
     } catch (err) {
         if((error?.code === 4411 || error?.message?.includes("farm_owner_missing")) && !options.farmOwnerId) {
-            const farmOwnerId = 
+            const farmOwnerId = token2uID(options.token);
+            if (farmOwnerId) {
+                return joinOnce(
+                    client,
+                    roomName,
+                    { ...options, farmOwnerId },
+                    timeoutMs
+                );
+            }
         }
+        throw err;
     }
 }
 
@@ -215,3 +202,4 @@ callbacks.listen("levelId", updateMap);
 // room.onMessage("chat", message => {
 //     console.log("Chat:", message);
 // });
+})();

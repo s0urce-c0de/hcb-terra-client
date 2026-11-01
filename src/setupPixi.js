@@ -1,19 +1,51 @@
+/**
+ * @fileoverview
+ */
 import { Application, Container, Graphics } from "pixi.js";
+import { LazyAsyncGetTerraMap } from "./types.js";
 
+/**
+ * @typedef {{
+ *  margin: number,
+ *  worldW: number,
+ *  worldH: number
+ * }} drawCfgT
+*/
+export let drawCfgT;
+
+/**
+ * @type {drawCfgT}
+ */
 const drawCfgDefault = {
     margin: 0.9,
     worldW: 20,
     worldH: 20,
 };
 
+/**
+ * Automatically resize the world size to the app
+ * 
+ * @param {!Application} app The PixiJS app
+ * @param {!Container} world The world container that is being resized
+ * @param {!drawCfgT} cfg The draw config
+ * @returns {void}
+ */
 function autoResize(app, world, cfg) {
     const { width, height } = app.screen;
     world.scale.set(Math.min((width * cfg.margin) / cfg.worldW, (height * cfg.margin) / cfg.worldH));
     world.position.set(width / 2, height / 2);
 }
 
+/**
+ * 
+ * @param {function(): void} autoResizeBinded The automatic resize function (binded)
+ * @param {!drawCfgT} drawCfg The drawing config
+ * @param {!Graphics} bounds The bounds object 
+ * @param {!LazyAsyncGetTerraMap} maps 
+ * @param {string} mapName 
+ */
 function updateMap(autoResizeBinded, drawCfg, bounds, maps, mapName) {
-    const { width: worldW, height: worldH, boundsPolygon } = maps[mapName];
+    const { width: worldW, height: worldH, boundsPolygon } = maps.get(mapName);
     bounds.clear();
     bounds
         .poly(
@@ -27,7 +59,20 @@ function updateMap(autoResizeBinded, drawCfg, bounds, maps, mapName) {
     autoResizeBinded();
 }
 
+/**
+ * 
+ * @param {!LazyAsyncGetTerraMap} maps 
+ * @returns {{
+ *  app: !Application,
+ *  drawCfg: !drawCfgT,
+ *  autoResize: (function(): void),
+ *  world: !Container
+ * }}
+ */
 export default async function setupPixi(maps) {
+    /**
+     * @type {!Application}
+     */
     const app = new Application();
 
     await app.init({
