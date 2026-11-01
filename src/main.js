@@ -1,229 +1,245 @@
-import { Client, Callbacks } from "@colyseus/sdk";
+import { Client, Callbacks, Room } from "@colyseus/sdk";
 import env from "./env.js";
 import setupPixi from "./setupPixi.js";
-import { Graphics, GraphicsContext } from "pixi.js";
+import { Application, Container, Graphics, GraphicsContext } from "pixi.js";
 import { DotMap } from "./extrastuff.js";
 import { LazyAsyncGetTerraMap } from "./types.js";
+import { StateCallbackStrategy } from "@colyseus/schema";
 
-/** @type {LazyAsyncGetTerraMap} */
-const terraMaps = new LazyAsyncGetTerraMap();
 
-if (location.href.slice(0, 4) != "http") throw new Error("This is not supported on non HTTP(S) pages!");
+class ColyseusManager {
+    /** @type {!Room} */
+    room;
+    /** @type {DotMap} */
+    dots;
+    /** @type {Client} */
+    client;
+    /** @type {LazyAsyncGetTerraMap} */
+    terraMaps;
+    /** @type {Application} */
+    app;
+    /** @type {Container} */
+    world;
+    /** @type {function(string): void} */
+    updateMap;
+    /** @type {StateCallbackStrategy} */
+    callbacks;
 
-const client = new Client("ws" + location.origin.slice(4));
-
-const { app, world, updateMap } = await setupPixi(terraMaps);
-
-/**
- * 
- * @param {!Room} room 
- * @param {!DotMap} dots
- * @returns {void} 
- */
-function bindRoomListeners(room, dots) {
-    const RADIUS = 0.25;
-    const meDot = new GraphicsContext().circle(0, 0, RADIUS).fill(0x0000ff);
-    const youDot = new GraphicsContext().circle(0, 0, RADIUS).fill(0xff0000);
-    const callbacks = Callbacks.get(room);
-
-    room.onMessage("pingCheck", e => room.send("pongCheck", { id: e.id }));
-    // room.onDrop();
-    // room.onReconnect();
-    // room.onMessage("serverMigrate");
-    // room.onMessage("refreshPrompt");
-    // room.onMessage("sessionKicked");
-    // room.onMessage("npc.dialogueStart");
-    // room.onMessage("npc.fadeOut");
-    // room.onMessage("npc.disappeared");
-    room.onMessage("redirectToLevel", console.log);
-    // room.onMessage("hud.state");
-    // room.onMessage("chat.history");
-    // room.onMessage("chat.message");
-    // room.onMessage("chat.deleted");
-    // room.onMessage("chat.edited");
-    // room.onMessage("chat.access");
-    // room.onMessage("friend.joinRoom");
-    // room.onMessage("friend.joinError");
-    // room.onMessage("friend.presence");
-    // room.onMessage("chat.error")
-    // room.onMessage("joinComplete");
-    // room.onMessage("inventory.sync");
-    // room.onMessage("accessories.sync");
-    // room.onMessage("player.currency");
-    // room.onMessage("npc.rewardResult");
-    // room.onMessage("shop.stock");
-    // room.onMessage("loan.state");
-    // room.onMessage("loan.result");
-    // room.onMessage("shop.purchaseResult");
-    // room.onMessage("ratticus.seedResult");
-    // room.onMessage("ratticus.rentResult");
-    // room.onMessage("market.items");
-    // room.onMessage("market.saleResult");
-    // room.onMessage("market.notice");
-    // room.onMessage("ratticus.notice");
-    // room.onMessage("farm.notice");
-    // room.onMessage("quest.defenitions");
-    // room.onMessage("hours.update");
-    // room.onMessage("rentDebt.check");
-    // room.onMessage("plotLoan.notice");
-    // room.onMessage("objective.update");
-    // room.onMessage("quest.progress");
-    // room.onMessage("quest.targets");
-    // room.onMessage("quest.taskCompleted");
-    // room.onMessage("quest.started");
-    // room.onLeave();
-
-    // callbacks.onAdd(n(e.equippedAccessories));
-    // callbacks.onChange(n(e.equippedAccessories));
-    // callbacks.onRemove(n(e.equippedAccessories));
-    // callbacks.listen("clothesHue");
-    // callbacks.listen("displayName");
-    // callbacks.onChange();
-    callbacks.onAdd("players", (player, sessionId) => {
-        if (sessionId === room.sessionId) console.log("me joined!", player.x, player.z);
-        
-        const dot = new Graphics(sessionId === room.sessionId ? meDot : youDot);
-        dot.position.set(player.x, player.z);
-        dots.set(sessionId, dot);
-        
-        console.log("player join", player.x, player.z);
-
-        callbacks.listen(player, "x", x => (dot.x = x));
-        callbacks.listen(player, "z", z => (dot.z = z));
-    });
-    // callbacks.onChange("players");
-    callbacks.onRemove("players", (player, sessionId) => {
-        dots.delete(sessionId);
-    });
-    // callbacks.onAdd("npcs");
-    // callbacks.onChange("npcs");
-    // callbacks.onRemove("npcs");
-    // callbacks.onAdd("farmItems");
-    // callbacks.onChange("farmItems");
-    // callbacks.onRemove("farmITems");
-    // callbacks.listen("waterApplied");
-    // callbacks.listen("fedAt");
-    // callbacks.listen("shippedAt");
-    // callbacks.listen("reviewState");
-    // callbacks.listen("grownAt");
-    // callbacks.listen("witheredAt");
-    // room.onMessage("positionCorrection");
-    // room.onMessage("forceTeleport");
-}
-
-/**
- * 
- * @param {!Client} client 
- * @param {string} roomName 
- * @param {!Object} options 
- * @param {number} timeOutMs 
- * @returns {!Promise<!Room>}
- */
-async function joinOnce(client, roomName, options, timeOutMs) {
-    const { roomId, ...joinOpts } = options;
-    let timer;
-    const joinProm = roomId ? client.joinRoomById(roomId, {...joinOpts, friendJoin: true, protocol: 2}) : client.joinOrCreate(roomName, {...joinOpts, protocol: 2})
-    const timeout = new Promise((_, r)=>(timer = setTimeout(() => r(new Error("timeout")), timeOutMs)));
-    try {
-        const room = await Promise.race([joinProm, timeout]);
-        // add sessionid sotorage
-        return room;
-    } catch (err) {
-        joinProm.then(r => r.leave()).catch(_=>_);
-        throw err;
-    } finally {
-        clearTimeout(timer);
+    constructor() {
+        return this._constructor();
     }
-}
 
-/**
- * 
- * @param {string} token JWT Token 
- * @returns {string} The userid
- */
-function token2uID(token) {
-    try {
-        const decoded = JSON.parse(atob(token.split(".")[1].replaceAll("-", "+").replaceAll("_", "/")));
-        return decoded.userId ?? null;
-    } catch {
-        return null;
-    }
-}
+    async _constructor() {
+        let opts = { token: env.token };
+        if (location.href.slice(0, 4) != "http") throw new Error("This is not supported on non HTTP(S) pages!");
 
-/**
- * 
- * @param {!Client} client 
- * @param {string} roomName 
- * @param {!Object} options 
- * @param {number=} timeOutMs 
- * @returns {!Promise<!Room>}
- */
-async function joinWorld(client, roomName, options, timeOutMs = 10_000) {
-    try {
-        return await joinOnce(client, roomName, options, timeOutMs);
-    } catch (err) {
-        if((error?.code === 4411 || error?.message?.includes("farm_owner_missing")) && !options.farmOwnerId) {
-            const farmOwnerId = token2uID(options.token);
-            if (farmOwnerId) {
-                return await joinOnce(
-                    client,
-                    roomName,
-                    { ...options, farmOwnerId },
-                    timeoutMs
-                );
+        this.client = new Client("ws" + location.origin.slice(4));
+        this.terraMaps = new LazyAsyncGetTerraMap();
+
+        ({ app: this.app, world: this.world, updateMap: this.updateMap } = await setupPixi(this.terraMaps));
+
+        this.joinWorld("world", opts).catch(err => {
+            console.error(err);
+            if (err.code === 4412 || err.message.includes("session_conflict")) {
+                if (window.confirm("Kick device already on terra?")) {
+                    return this.joinWorld("world", {...opts, takeover: true})
+                };
             }
+            throw err;
+        });
+    }
+
+    /**
+     * Binds event listeners to a instance of colyseus
+     * 
+     * @returns {void} 
+     */
+    bindRoomListeners() {
+        const RADIUS = 0.25;
+        const meDot = new GraphicsContext().circle(0, 0, RADIUS).fill(0x0000ff);
+        const youDot = new GraphicsContext().circle(0, 0, RADIUS).fill(0xff0000);
+
+        if(!this.dots)this.dots = new DotMap(this.world);
+
+        this.room.onMessage("pingCheck", e => this.room.send("pongCheck", { id: e.id }));
+        // this.room.onDrop();
+        // this.room.onReconnect();
+        // this.room.onMessage("serverMigrate");
+        // this.room.onMessage("refreshPrompt");
+        this.room.onMessage("sessionKicked", alert.bind(globalThis, "You were kicked from the server by another client. Reload to join again."));
+        // this.room.onMessage("npc.dialogueStart");
+        // this.room.onMessage("npc.fadeOut");
+        // this.room.onMessage("npc.disappeared");
+        this.room.onMessage("redirectToLevel", console.log);
+        // this.room.onMessage("hud.state");
+        // this.room.onMessage("chat.history");
+        // this.room.onMessage("chat.message");
+        // this.room.onMessage("chat.deleted");
+        // this.room.onMessage("chat.edited");
+        // this.room.onMessage("chat.access");
+        // this.room.onMessage("friend.joinRoom");
+        // this.room.onMessage("friend.joinError");
+        // this.room.onMessage("friend.presence");
+        // this.room.onMessage("chat.error")
+        // this.room.onMessage("joinComplete");
+        // this.room.onMessage("inventory.sync");
+        // this.room.onMessage("accessories.sync");
+        // this.room.onMessage("player.currency");
+        // this.room.onMessage("npc.rewardResult");
+        // this.room.onMessage("shop.stock");
+        // this.room.onMessage("loan.state");
+        // this.room.onMessage("loan.result");
+        // this.room.onMessage("shop.purchaseResult");
+        // this.room.onMessage("ratticus.seedResult");
+        // this.room.onMessage("ratticus.rentResult");
+        // this.room.onMessage("market.items");
+        // this.room.onMessage("market.saleResult");
+        // this.room.onMessage("market.notice");
+        // this.room.onMessage("ratticus.notice");
+        // this.room.onMessage("farm.notice");
+        // this.room.onMessage("quest.defenitions");
+        // this.room.onMessage("hours.update");
+        // this.room.onMessage("rentDebt.check");
+        // this.room.onMessage("plotLoan.notice");
+        // this.room.onMessage("objective.update");
+        // this.room.onMessage("quest.progress");
+        // this.room.onMessage("quest.targets");
+        // this.room.onMessage("quest.taskCompleted");
+        // this.room.onMessage("quest.started");
+        // this.room.onLeave();
+
+        // this.callbacks.onAdd(n(e.equippedAccessories));
+        // this.callbacks.onChange(n(e.equippedAccessories));
+        // this.callbacks.onRemove(n(e.equippedAccessories));
+        // this.callbacks.listen("clothesHue");
+        // this.callbacks.listen("displayName");
+        // this.callbacks.onChange();
+        this.callbacks.onAdd("players", (player, sessionId) => {
+            if (sessionId === this.room.sessionId) console.log("me joined!", player.x, player.z);
+            
+            const dot = new Graphics(sessionId === this.room.sessionId ? meDot : youDot);
+            dot.position.set(player.x, player.z);
+            this.dots.set(sessionId, dot);
+            
+            console.log("player join", player.x, player.z);
+
+            this.callbacks.listen(player, "x", x => (dot.x = x));
+            this.callbacks.listen(player, "z", z => (dot.z = z));
+        });
+        // this.callbacks.onChange("players");
+        this.callbacks.onRemove("players", (player, sessionId) => {
+            this.dots.delete(sessionId);
+        });
+        // this.callbacks.onAdd("npcs");
+        // this.callbacks.onChange("npcs");
+        // this.callbacks.onRemove("npcs");
+        // this.callbacks.onAdd("farmItems");
+        // this.callbacks.onChange("farmItems");
+        // this.callbacks.onRemove("farmITems");
+        // this.callbacks.listen("waterApplied");
+        // this.callbacks.listen("fedAt");
+        // this.callbacks.listen("shippedAt");
+        // this.callbacks.listen("reviewState");
+        // this.callbacks.listen("grownAt");
+        // this.callbacks.listen("witheredAt");
+        // this.room.onMessage("positionCorrection");
+        // this.room.onMessage("forceTeleport");
+
+        this.callbacks.listen("levelId", this.updateMap);
+    }
+
+    /**
+     * 
+     * @param {!Client} client 
+     * @param {string} this.roomName 
+     * @param {!Object} options 
+     * @param {number} timeOutMs 
+     */
+    async joinOnce(client, roomName, options, timeOutMs) {
+        const { roomId, ...joinOpts } = options;
+        let timer;
+        const joinProm = roomId ? client.joinRoomById(roomId, {...joinOpts, friendJoin: true, protocol: 2}) : client.joinOrCreate(roomName, {...joinOpts, protocol: 2})
+        const timeout = new Promise((_, r)=>(timer = setTimeout(() => r(new Error("timeout")), timeOutMs)));
+        try {
+            return await Promise.race([joinProm, timeout]);
+            // add sessionid sotorage
+        } catch (err) {
+            joinProm.then(r => r.leave()).catch(_=>_);
+            throw err;
+        } finally {
+            clearTimeout(timer);
         }
-        throw err;
+    }
+
+    /**
+     * 
+     * @param {string} token JWT Token 
+     * @returns {string} The userid
+     */
+    token2uID(token) {
+        try {
+            const decoded = JSON.parse(atob(token.split(".")[1].replaceAll("-", "+").replaceAll("_", "/")));
+            return decoded.userId ?? null;
+        } catch {
+            return null;
+        }
+    }
+
+    /**
+     * @param {string} roomName 
+     * @param {!Object} options 
+     * @param {number=} timeOutMs
+     */
+    async joinWorld(roomName, options, timeOutMs = 10_000) {
+        try {
+            this.room = await this.joinOnce(this.client, roomName, options, timeOutMs);
+        } catch (err) {
+            if((err?.code === 4411 || err?.message?.includes("farm_owner_missing")) && !options.farmOwnerId) {
+                const farmOwnerId = token2uID(options.token);
+                if (farmOwnerId) {
+                    this.room = await this.joinOnce(
+                        this.client,
+                        roomName,
+                        { ...options, farmOwnerId },
+                        timeoutMs
+                    );
+                }
+            }
+            throw err;
+        }
+
+        this.callbacks = Callbacks.get(this.room);
+
+        this.bindRoomListeners();   
     }
 }
 
-let room;
+window.colyseusmanager = new ColyseusManager();
 
-try {
-    room = await client.joinOrCreate("world", {
-        token: env.token,
-        protocol: 2,
-    });
-} catch (err) {
-    console.error(err);
-    if (err.message == "session_conflict") {
-        alert("Please log off the other device!");
-    }
-    throw err;
-}
-
-const callbacks = Callbacks.get(room);
-
-const dots = new DotMap(world);
-
-bindRoomListeners(room, dots);
-
-callbacks.listen("levelId", updateMap);
-
-// callbacks.onAdd("players", (player, sessionId) => {
-//     if (sessionId === room.sessionId) console.log("me:", player.x, player.z);
-//     const dot = new Graphics(sessionId == room.sessionId ? meDot : youDot);
+// this.callbacks.onAdd("players", (player, sessionId) => {
+//     if (sessionId === this.room.sessionId) console.log("me:", player.x, player.z);
+//     const dot = new Graphics(sessionId == this.room.sessionId ? meDot : youDot);
 //     dot.position.set(player.x, player.z);
 //     world.addChild(dot);
-//     dots.set(sessionId, dot);
+//     this.dots.set(sessionId, dot);
 
 //     console.log("Player added", player.x, player.z);
 
-//     callbacks.listen(player, "x", x => (dot.x = x));
-//     callbacks.listen(player, "z", z => (dot.z = z));
+//     this.callbacks.listen(player, "x", x => (dot.x = x));
+//     this.callbacks.listen(player, "z", z => (dot.z = z));
 // });
 
-// room.onMessage("redirectToLevel", console.log);
+// this.room.onMessage("redirectToLevel", console.log);
 
-// callbacks.onRemove("players", (player, sessionId) => {
-//     dots.get(sessionId)?.destroy();
-//     dots.delete(sessionId);
+// this.callbacks.onRemove("players", (player, sessionId) => {
+//     this.dots.get(sessionId)?.destroy();
+//     this.dots.delete(sessionId);
 // });
 
-// room.onStateChange(state => {
+// this.room.onStateChange(state => {
 //     console.log(state.toJSON());
 // });
 
-// room.onMessage("chat", message => {
+// this.room.onMessage("chat", message => {
 //     console.log("Chat:", message);
 // });

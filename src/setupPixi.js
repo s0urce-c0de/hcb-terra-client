@@ -45,8 +45,8 @@ function autoResize(app, world, cfg) {
  * @param {string} mapName 
  * @returns {void}
  */
-function updateMap(autoResizeBinded, drawCfg, bounds, maps, mapName) {
-    const { width: worldW, height: worldH, boundsPolygon } = maps.get(mapName);
+async function updateMap(autoResizeBinded, drawCfg, bounds, maps, mapName) {
+    const { width: worldW, height: worldH, boundsPolygon } = await maps.get(mapName);
     bounds.clear();
     bounds
         .poly(

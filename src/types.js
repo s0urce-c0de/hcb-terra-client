@@ -111,7 +111,7 @@ export class LazyAsyncGetTerraMap extends Map {
         /**
          * @type {!Response} Request for the level data
          */
-        const req = await fetch(`/assets/levels/${loc}.json`);
+        const req = await fetch(`/assets/levels/${key}.json`);
         /**
          * @type {!TerraMap}
          */
