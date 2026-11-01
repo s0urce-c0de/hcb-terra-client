@@ -51,6 +51,23 @@ export class DotMap extends Map {
             this.delete(key);
         }
 
-        super.clear()
+        super.clear();
+    }
+}
+
+export class DefaultMap extends Map {
+    /** @type {*} */
+    #defaultVal;
+
+    /**
+     * @param {*} defaultVal 
+     */
+    constructor(defaultVal) {
+        super();
+        this.#defaultVal = defaultVal;
+    }
+
+    get(key) {
+        return super.has(key) ? super.get(key) : this.#defaultVal;
     }
 }

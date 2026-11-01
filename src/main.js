@@ -1,11 +1,61 @@
 import { Client, Callbacks, Room } from "@colyseus/sdk";
 import env from "./env.js";
 import setupPixi from "./setupPixi.js";
-import { Application, Container, Graphics, GraphicsContext } from "pixi.js";
-import { DotMap } from "./extrastuff.js";
+import { Application, Container, Graphics, GraphicsContext, triangulateWithHoles } from "pixi.js";
+import { DefaultMap, DotMap } from "./extrastuff.js";
 import { LazyAsyncGetTerraMap } from "./types.js";
 import { StateCallbackStrategy } from "@colyseus/schema";
 
+const terraCfg = {
+    TICK_RATE: 60,
+    FIXED_DT: 1 / 60,
+    WORLD_HALF_SIZE: 20,
+    WORLD_BOUNDS_CORNER_RADIUS: .3,
+    PLAYER_SPEED: 4,
+    PLAYER_SPRINT_SPEED: 7,
+    PLAYER_RADIUS: .4,
+    FRICTION_PER_TICK: .8,
+    MAX_PLAYERS_PER_ROOM: 50,
+    SERVER_SEND_RATE: 20,
+    CLIENT_CMD_RATE: 30,
+    INTERP_DELAY: 100,
+    ERROR_CORRECTION_TIME: .15,
+    NPC_INTERACT_RANGE: 2,
+    POSITION_SOFT_THRESHOLD: .5,
+    POSITION_SOFT_THRESHOLD_SPRINT: 1.2,
+    POSITION_HARD_THRESHOLD: 1.5,
+    POSITION_HARD_THRESHOLD_SPRINT: 3.2,
+    MAX_FRAME_TIME: .25,
+    MAX_PHYSICS_STEPS_PER_TICK: 15,
+    PING_INTERVAL_MS: 2e3,
+    MAX_LATENCY_ALLOWANCE_MS: 400
+}; // stolen directly from the code !!!!
+
+class InputManager /* <- NetworkManager reference btw */ {
+    /** @type {!DefaultMap} */
+    keysPressed;
+    constructor() {
+        this.keysPressed = new DefaultMap(false);
+        window.addEventListener("keydown", this.#handleInput.bind(this, true));
+        window.addEventListener("keyup", this.#handleInput.bind(this, false));
+        // window.addEventListener("visibilitychange", e => {})
+    }
+
+    /**
+     * @param {!KeyboardEvent} e
+     * @returns {void} 
+     */
+    #handleInput(down, e) {
+        this.keysPressed.set(e.code, down);
+    }
+
+    getDirection() {
+        return {
+            h: Math.sign(this.keysPressed.get("ArrowRight") - this.keysPressed.get("ArrowLeft") + this.keysPressed.get("KeyD") - this.keysPressed.get("KeyA")),
+            v: Math.sign(this.keysPressed.get("ArrowDown") - this.keysPressed.get("ArrowUp") + this.keysPressed.get("KeyS") - this.keysPressed.get("KeyW"))
+        }
+    }
+}
 
 class ColyseusManager {
     /** @type {!Room} */
@@ -26,6 +76,13 @@ class ColyseusManager {
     callbacks;
     /** @type {string} */
     token;
+    /** @type {!InputManager} */
+    inputmanager;
+
+    /** @type {number} */
+    seq = 0;
+    /** @type {number} */
+    lastSendWhen = 0;
 
     constructor() {
         this._constructor();
@@ -37,8 +94,13 @@ class ColyseusManager {
         this.client = new Client("ws" + location.origin.slice(4));
         this.terraMaps = new LazyAsyncGetTerraMap();
         this.token = env.token;
+        this.inputmanager = new InputManager();
 
         ({ app: this.app, world: this.world, updateMap: this.updateMap } = await setupPixi(this.terraMaps));
+
+        this.app.ticker.maxFPS = terraCfg.TICK_RATE;
+        this.app.ticker.maxFPS = terraCfg.TICK_RATE;
+        this.app.ticker.add(() => this.movementTick());
 
         this.joinWorld("world").catch(err => {
             console.error(err);
@@ -49,6 +111,47 @@ class ColyseusManager {
             }
             throw err;
         });
+    }
+
+    /**
+     * @returns {void}
+     */
+    movementTick() {
+        /** @type {GraphicsContext} */
+        const meDot = this.dots?.get(this.room?.sessionId);
+        if (!meDot) return;
+
+        const { h, v } = this.inputmanager.getDirection();
+        const sprinting = true; // this.inputmanager.keysPressed.get("ShiftLeft");
+        const speed = sprinting ? terraCfg.PLAYER_SPRINT_SPEED : terraCfg.PLAYER_SPEED;
+
+        meDot.x += h * speed * terraCfg.FIXED_DT;
+        meDot.z += v * speed * terraCfg.FIXED_DT;
+
+        const now = performance.now();
+        if (now - this.lastSendWhen >= (1000 / terraCfg.CLIENT_CMD_RATE)) {
+            this.seq++;
+            this.room.send("move", {
+                x: h,
+                y: v,
+                seq: this.seq,
+                posX: meDot.x,
+                posZ: meDot.z,
+                sprinting
+            })
+        }
+    }
+
+    fixLoc(servX, servZ) {
+        const meDot = this.dots?.get(this.room?.sessionId);
+        if(!meDot) return;
+
+        const dErr = Math.hypot(servX - meDot.x, servZ - meDot.z);
+
+        if (dErr > terraCfg.POSITION_SOFT_THRESHOLD) {
+            meDot.x = servX;
+            meDot.z = servZ;
+        }
     }
 
     /**
@@ -118,16 +221,17 @@ class ColyseusManager {
         // this.callbacks.listen("displayName");
         // this.callbacks.onChange();
         this.callbacks.onAdd("players", (player, sessionId) => {
-            if (sessionId === this.room.sessionId) console.log("me joined!", player.x, player.z);
+            const isMe = sessionId === this.room.sessionId;
+            if (isMe) console.log("me joined!", player.x, player.z);
             
-            const dot = new Graphics(sessionId === this.room.sessionId ? meDot : youDot);
+            const dot = new Graphics(isMe ? meDot : youDot);
             dot.position.set(player.x, player.z);
             this.dots.set(sessionId, dot);
-            
+            console.log(player)
             console.log("player join", player.x, player.z);
 
-            this.callbacks.listen(player, "x", x => (dot.x = x));
-            this.callbacks.listen(player, "z", z => (dot.z = z));
+            this.callbacks.listen(player, "x", isMe ? (x => this.fixLoc(x, player.z)) : (x => (dot.x = x)));
+            this.callbacks.listen(player, "z", isMe ? (z => this.fixLoc(player.x, z)) : (z => (dot.z = z)));
         });
         // this.callbacks.onChange("players");
         this.callbacks.onRemove("players", (player, sessionId) => {
