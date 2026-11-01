@@ -117,6 +117,8 @@ export class LazyAsyncGetTerraMap extends Map {
          */
         const json = /** @type {!TerraMap} */(await req.json());
 
+        super.set(key, json);
+
         return json;
     }
 }

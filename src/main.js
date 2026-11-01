@@ -10,39 +10,41 @@ import { StateCallbackStrategy } from "@colyseus/schema";
 class ColyseusManager {
     /** @type {!Room} */
     room;
-    /** @type {DotMap} */
+    /** @type {!DotMap} */
     dots;
-    /** @type {Client} */
+    /** @type {!Client} */
     client;
-    /** @type {LazyAsyncGetTerraMap} */
+    /** @type {!LazyAsyncGetTerraMap} */
     terraMaps;
-    /** @type {Application} */
+    /** @type {!Application} */
     app;
-    /** @type {Container} */
+    /** @type {!Container} */
     world;
     /** @type {function(string): void} */
     updateMap;
-    /** @type {StateCallbackStrategy} */
+    /** @type {!StateCallbackStrategy} */
     callbacks;
+    /** @type {string} */
+    token;
 
     constructor() {
-        return this._constructor();
+        this._constructor();
     }
 
     async _constructor() {
-        let opts = { token: env.token };
         if (location.href.slice(0, 4) != "http") throw new Error("This is not supported on non HTTP(S) pages!");
 
         this.client = new Client("ws" + location.origin.slice(4));
         this.terraMaps = new LazyAsyncGetTerraMap();
+        this.token = env.token;
 
         ({ app: this.app, world: this.world, updateMap: this.updateMap } = await setupPixi(this.terraMaps));
 
-        this.joinWorld("world", opts).catch(err => {
+        this.joinWorld("world").catch(err => {
             console.error(err);
             if (err.code === 4412 || err.message.includes("session_conflict")) {
                 if (window.confirm("Kick device already on terra?")) {
-                    return this.joinWorld("world", {...opts, takeover: true})
+                    return this.joinWorld("world", {takeover: true})
                 };
             }
             throw err;
@@ -60,6 +62,7 @@ class ColyseusManager {
         const youDot = new GraphicsContext().circle(0, 0, RADIUS).fill(0xff0000);
 
         if(!this.dots)this.dots = new DotMap(this.world);
+        this.dots.clear();
 
         this.room.onMessage("pingCheck", e => this.room.send("pongCheck", { id: e.id }));
         // this.room.onDrop();
@@ -70,7 +73,7 @@ class ColyseusManager {
         // this.room.onMessage("npc.dialogueStart");
         // this.room.onMessage("npc.fadeOut");
         // this.room.onMessage("npc.disappeared");
-        this.room.onMessage("redirectToLevel", console.log);
+        this.room.onMessage("redirectToLevel", e => {console.log(e);this.joinWorld("world", {levelId: e.levelId, farmOwnerId: e.farmOwnerId})});
         // this.room.onMessage("hud.state");
         // this.room.onMessage("chat.history");
         // this.room.onMessage("chat.message");
@@ -158,7 +161,7 @@ class ColyseusManager {
     async joinOnce(client, roomName, options, timeOutMs) {
         const { roomId, ...joinOpts } = options;
         let timer;
-        const joinProm = roomId ? client.joinRoomById(roomId, {...joinOpts, friendJoin: true, protocol: 2}) : client.joinOrCreate(roomName, {...joinOpts, protocol: 2})
+        const joinProm = roomId ? client.joinOrCreate(roomId, {...joinOpts, token: this.token, friendJoin: true, protocol: 2}) : client.joinOrCreate(roomName, {...joinOpts, token: this.token, protocol: 2})
         const timeout = new Promise((_, r)=>(timer = setTimeout(() => r(new Error("timeout")), timeOutMs)));
         try {
             return await Promise.race([joinProm, timeout]);
@@ -187,15 +190,15 @@ class ColyseusManager {
 
     /**
      * @param {string} roomName 
-     * @param {!Object} options 
+     * @param {!Object=} options 
      * @param {number=} timeOutMs
      */
-    async joinWorld(roomName, options, timeOutMs = 10_000) {
+    async joinWorld(roomName, options = {}, timeOutMs = 10_000) {
         try {
             this.room = await this.joinOnce(this.client, roomName, options, timeOutMs);
         } catch (err) {
             if((err?.code === 4411 || err?.message?.includes("farm_owner_missing")) && !options.farmOwnerId) {
-                const farmOwnerId = token2uID(options.token);
+                const farmOwnerId = token2uID(this.token);
                 if (farmOwnerId) {
                     this.room = await this.joinOnce(
                         this.client,
@@ -216,30 +219,6 @@ class ColyseusManager {
 
 window.colyseusmanager = new ColyseusManager();
 
-// this.callbacks.onAdd("players", (player, sessionId) => {
-//     if (sessionId === this.room.sessionId) console.log("me:", player.x, player.z);
-//     const dot = new Graphics(sessionId == this.room.sessionId ? meDot : youDot);
-//     dot.position.set(player.x, player.z);
-//     world.addChild(dot);
-//     this.dots.set(sessionId, dot);
-
-//     console.log("Player added", player.x, player.z);
-
-//     this.callbacks.listen(player, "x", x => (dot.x = x));
-//     this.callbacks.listen(player, "z", z => (dot.z = z));
-// });
-
-// this.room.onMessage("redirectToLevel", console.log);
-
-// this.callbacks.onRemove("players", (player, sessionId) => {
-//     this.dots.get(sessionId)?.destroy();
-//     this.dots.delete(sessionId);
-// });
-
 // this.room.onStateChange(state => {
 //     console.log(state.toJSON());
-// });
-
-// this.room.onMessage("chat", message => {
-//     console.log("Chat:", message);
 // });

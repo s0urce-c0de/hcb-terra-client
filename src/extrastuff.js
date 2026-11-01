@@ -42,4 +42,15 @@ export class DotMap extends Map {
         }
         return super.delete(key);
     }
+
+    /**
+     * @returns {void}
+     */
+    clear() {
+        for (const key of [...this.keys()]) {
+            this.delete(key);
+        }
+
+        super.clear()
+    }
 }
