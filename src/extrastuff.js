@@ -6,12 +6,12 @@ import { Container, GraphicsContext } from "pixi.js";
 
 /**
  * A dotmap that automatically adds it dots to a world object
- * 
+ *
  * @extends {Map}
  */
 export class DotMap extends Map {
     /**
-     * @param {!Container} world 
+     * @param {!Container} world
      */
     constructor(world) {
         super();
@@ -19,8 +19,8 @@ export class DotMap extends Map {
     }
 
     /**
-     * 
-     * @param {string} key 
+     *
+     * @param {string} key
      * @param {!GraphicsContext} value
      * @returns {!DotMap}
      */
@@ -31,7 +31,7 @@ export class DotMap extends Map {
     }
 
     /**
-     * @param {string} key 
+     * @param {string} key
      * @returns {boolean}
      */
     delete(key) {
@@ -60,7 +60,7 @@ export class DefaultMap extends Map {
     #defaultVal;
 
     /**
-     * @param {*} defaultVal 
+     * @param {*} defaultVal
      */
     constructor(defaultVal) {
         super();

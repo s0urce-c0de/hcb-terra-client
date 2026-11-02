@@ -10,7 +10,7 @@ import { LazyAsyncGetTerraMap } from "./types.js";
  *  worldW: number,
  *  worldH: number
  * }} drawCfgT
-*/
+ */
 export let drawCfgT;
 
 /**
@@ -24,7 +24,7 @@ const drawCfgDefault = {
 
 /**
  * Automatically resize the world size to the app
- * 
+ *
  * @param {!Application} app The PixiJS app
  * @param {!Container} world The world container that is being resized
  * @param {!drawCfgT} cfg The draw config
@@ -37,12 +37,12 @@ function autoResize(app, world, cfg) {
 }
 
 /**
- * 
+ *
  * @param {function(): void} autoResizeBinded The automatic resize function (binded)
  * @param {!drawCfgT} drawCfg The drawing config
- * @param {!Graphics} bounds The bounds object 
- * @param {!LazyAsyncGetTerraMap} maps 
- * @param {string} mapName 
+ * @param {!Graphics} bounds The bounds object
+ * @param {!LazyAsyncGetTerraMap} maps
+ * @param {string} mapName
  * @returns {void}
  */
 async function updateMap(autoResizeBinded, drawCfg, bounds, maps, mapName) {
@@ -61,8 +61,8 @@ async function updateMap(autoResizeBinded, drawCfg, bounds, maps, mapName) {
 }
 
 /**
- * 
- * @param {!LazyAsyncGetTerraMap} maps 
+ *
+ * @param {!LazyAsyncGetTerraMap} maps
  * @returns {{
  *  app: !Application,
  *  drawCfg: !drawCfgT,

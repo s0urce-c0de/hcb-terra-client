@@ -52,7 +52,7 @@ export let CoordinatePair = void 0;
  *      requiredQuest: (!{
  *          questId: string,
  *          stepId: string
- *      }|undefined),   
+ *      }|undefined),  
  *      targetLevelId: string,
  *      targetSpawnTag: string
  *  }>,
@@ -93,7 +93,7 @@ export class LazyAsyncGetTerraMap extends Map {
     locs;
 
     /**
-     * @param {!Set<string>=} locs Locations 
+     * @param {!Set<string>=} locs Locations
      */
     constructor(locs = new Set(["town-square", "farm-island", "intro-scene"])) {
         super();
@@ -101,12 +101,12 @@ export class LazyAsyncGetTerraMap extends Map {
     }
 
     /**
-     * 
+     *
      * @param {string} key
      * @returns {!Promise<!TerraMap>}
      */
     async get(key) {
-        if(super.has(key) || !this.locs.has(key)) return super.get(key);
+        if (super.has(key) || !this.locs.has(key)) return super.get(key);
 
         /**
          * @type {!Response} Request for the level data
@@ -115,7 +115,7 @@ export class LazyAsyncGetTerraMap extends Map {
         /**
          * @type {!TerraMap}
          */
-        const json = /** @type {!TerraMap} */(await req.json());
+        const json = /** @type {!TerraMap} */ (await req.json());
 
         super.set(key, json);
 

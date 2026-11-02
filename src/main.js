@@ -10,25 +10,25 @@ const terraCfg = {
     TICK_RATE: 60,
     FIXED_DT: 1 / 60,
     WORLD_HALF_SIZE: 20,
-    WORLD_BOUNDS_CORNER_RADIUS: .3,
+    WORLD_BOUNDS_CORNER_RADIUS: 0.3,
     PLAYER_SPEED: 4,
     PLAYER_SPRINT_SPEED: 7,
-    PLAYER_RADIUS: .4,
-    FRICTION_PER_TICK: .8,
+    PLAYER_RADIUS: 0.4,
+    FRICTION_PER_TICK: 0.8,
     MAX_PLAYERS_PER_ROOM: 50,
     SERVER_SEND_RATE: 20,
     CLIENT_CMD_RATE: 30,
     INTERP_DELAY: 100,
-    ERROR_CORRECTION_TIME: .15,
+    ERROR_CORRECTION_TIME: 0.15,
     NPC_INTERACT_RANGE: 2,
-    POSITION_SOFT_THRESHOLD: .5,
+    POSITION_SOFT_THRESHOLD: 0.5,
     POSITION_SOFT_THRESHOLD_SPRINT: 1.2,
     POSITION_HARD_THRESHOLD: 1.5,
     POSITION_HARD_THRESHOLD_SPRINT: 3.2,
-    MAX_FRAME_TIME: .25,
+    MAX_FRAME_TIME: 0.25,
     MAX_PHYSICS_STEPS_PER_TICK: 15,
     PING_INTERVAL_MS: 2e3,
-    MAX_LATENCY_ALLOWANCE_MS: 400
+    MAX_LATENCY_ALLOWANCE_MS: 400,
 }; // stolen directly from the code !!!!
 
 class InputManager /* <- NetworkManager reference btw */ {
@@ -43,7 +43,7 @@ class InputManager /* <- NetworkManager reference btw */ {
 
     /**
      * @param {!KeyboardEvent} e
-     * @returns {void} 
+     * @returns {void}
      */
     #handleInput(down, e) {
         this.keysPressed.set(e.code, down);
@@ -51,9 +51,19 @@ class InputManager /* <- NetworkManager reference btw */ {
 
     getDirection() {
         return {
-            h: Math.sign(this.keysPressed.get("ArrowRight") - this.keysPressed.get("ArrowLeft") + this.keysPressed.get("KeyD") - this.keysPressed.get("KeyA")),
-            v: Math.sign(this.keysPressed.get("ArrowDown") - this.keysPressed.get("ArrowUp") + this.keysPressed.get("KeyS") - this.keysPressed.get("KeyW"))
-        }
+            h: Math.sign(
+                this.keysPressed.get("ArrowRight") -
+                    this.keysPressed.get("ArrowLeft") +
+                    this.keysPressed.get("KeyD") -
+                    this.keysPressed.get("KeyA")
+            ),
+            v: Math.sign(
+                this.keysPressed.get("ArrowDown") -
+                    this.keysPressed.get("ArrowUp") +
+                    this.keysPressed.get("KeyS") -
+                    this.keysPressed.get("KeyW")
+            ),
+        };
     }
 }
 
@@ -108,8 +118,8 @@ class ColyseusManager {
             console.error(err);
             if (err.code === 4412 || err.message.includes("session_conflict")) {
                 if (window.confirm("Kick device already on terra?")) {
-                    return this.joinWorld("world", {takeover: true})
-                };
+                    return this.joinWorld("world", { takeover: true });
+                }
             }
             throw err;
         });
@@ -127,12 +137,12 @@ class ColyseusManager {
         const sprinting = this.inputmanager.keysPressed.get("ShiftLeft");
         const speed = sprinting ? terraCfg.PLAYER_SPRINT_SPEED : terraCfg.PLAYER_SPEED;
 
-        meDot.x += h * speed * terraCfg.FIXED_DT / Math.hypot(h, v);
-        meDot.y += v * speed * terraCfg.FIXED_DT / Math.hypot(h, v);
+        meDot.x += (h * speed * terraCfg.FIXED_DT) / (Math.hypot(h, v) || 1);
+        meDot.y += (v * speed * terraCfg.FIXED_DT) / (Math.hypot(h, v) || 1);
 
         const now = performance.now();
         if (this.isMoving || h || v) {
-            if ((now - this.lastSendWhen >= (1000 / terraCfg.CLIENT_CMD_RATE))) {
+            if (now - this.lastSendWhen >= 1000 / terraCfg.CLIENT_CMD_RATE) {
                 this.seq++;
                 this.room.send("move", {
                     x: h,
@@ -140,7 +150,7 @@ class ColyseusManager {
                     seq: this.seq,
                     posX: meDot.x,
                     posZ: meDot.y,
-                    sprinting
+                    sprinting,
                 });
                 this.lastSendWhen = now;
 
@@ -150,13 +160,22 @@ class ColyseusManager {
     }
 
     fixLoc(servX, servZ) {
-        console.log(servX, servZ)
+        console.log(servX, servZ);
         const meDot = this.dots?.get(this.room?.sessionId);
-        if(!meDot) return;
+        if (!meDot) return;
 
         const dErr = Math.hypot(servX - meDot.x, servZ - meDot.y);
 
-        if (dErr > terraCfg.POSITION_SOFT_THRESHOLD) {
+        if (
+            dErr >
+            (this.inputmanager.keysPressed.get("ShiftLeft")
+                ? this.isMoving
+                    ? terraCfg.POSITION_HARD_THRESHOLD_SPRINT
+                    : terraCfg.POSITION_SOFT_THRESHOLD_SPRINT
+                : this.isMoving
+                  ? terraCfg.POSITION_HARD_THRESHOLD
+                  : terraCfg.POSITION_SOFT_THRESHOLD)
+        ) {
             meDot.x = servX;
             meDot.y = servZ;
         }
@@ -164,15 +183,15 @@ class ColyseusManager {
 
     /**
      * Binds event listeners to a instance of colyseus
-     * 
-     * @returns {void} 
+     *
+     * @returns {void}
      */
     bindRoomListeners() {
         const RADIUS = 0.25;
         const meDot = new GraphicsContext().circle(0, 0, RADIUS).fill(0x0000ff);
         const youDot = new GraphicsContext().circle(0, 0, RADIUS).fill(0xff0000);
 
-        if(!this.dots)this.dots = new DotMap(this.world);
+        if (!this.dots) this.dots = new DotMap(this.world);
         this.dots.clear();
 
         this.room.onMessage("pingCheck", e => this.room.send("pongCheck", { id: e.id }));
@@ -180,11 +199,17 @@ class ColyseusManager {
         // this.room.onReconnect();
         // this.room.onMessage("serverMigrate");
         // this.room.onMessage("refreshPrompt");
-        this.room.onMessage("sessionKicked", alert.bind(globalThis, "You were kicked from the server by another client. Reload to join again."));
+        this.room.onMessage(
+            "sessionKicked",
+            alert.bind(globalThis, "You were kicked from the server by another client. Reload to join again.")
+        );
         // this.room.onMessage("npc.dialogueStart");
         // this.room.onMessage("npc.fadeOut");
         // this.room.onMessage("npc.disappeared");
-        this.room.onMessage("redirectToLevel", e => {console.log(e);this.joinWorld("world", {levelId: e.levelId, farmOwnerId: e.farmOwnerId})});
+        this.room.onMessage("redirectToLevel", e => {
+            console.log(e);
+            this.joinWorld("world", { levelId: e.levelId, farmOwnerId: e.farmOwnerId });
+        });
         // this.room.onMessage("hud.state");
         // this.room.onMessage("chat.history");
         // this.room.onMessage("chat.message");
@@ -231,15 +256,15 @@ class ColyseusManager {
         this.callbacks.onAdd("players", (player, sessionId) => {
             const isMe = sessionId === this.room.sessionId;
             if (isMe) console.log("me joined!", player.x, player.z);
-            
+
             const dot = new Graphics(isMe ? meDot : youDot);
             dot.position.set(player.x, player.z);
             this.dots.set(sessionId, dot);
-            console.log(player)
+            console.log(player);
             console.log("player join", player.x, player.z);
 
-            this.callbacks.listen(player, "x", isMe ? (x => this.fixLoc(x, player.z)) : (x => (dot.x = x)));
-            this.callbacks.listen(player, "z", isMe ? (z => this.fixLoc(player.x, z)) : (z => (dot.y = z)));
+            this.callbacks.listen(player, "x", isMe ? x => this.fixLoc(x, player.z) : x => (dot.x = x));
+            this.callbacks.listen(player, "z", isMe ? z => this.fixLoc(player.x, z) : z => (dot.y = z));
         });
         // this.callbacks.onChange("players");
         this.callbacks.onRemove("players", (player, sessionId) => {
@@ -264,22 +289,24 @@ class ColyseusManager {
     }
 
     /**
-     * 
-     * @param {!Client} client 
-     * @param {string} this.roomName 
-     * @param {!Object} options 
-     * @param {number} timeOutMs 
+     *
+     * @param {!Client} client
+     * @param {string} this.roomName
+     * @param {!Object} options
+     * @param {number} timeOutMs
      */
     async joinOnce(client, roomName, options, timeOutMs) {
         const { roomId, ...joinOpts } = options;
         let timer;
-        const joinProm = roomId ? client.joinOrCreate(roomId, {...joinOpts, token: this.token, friendJoin: true, protocol: 2}) : client.joinOrCreate(roomName, {...joinOpts, token: this.token, protocol: 2})
-        const timeout = new Promise((_, r)=>(timer = setTimeout(() => r(new Error("timeout")), timeOutMs)));
+        const joinProm = roomId
+            ? client.joinOrCreate(roomId, { ...joinOpts, token: this.token, friendJoin: true, protocol: 2 })
+            : client.joinOrCreate(roomName, { ...joinOpts, token: this.token, protocol: 2 });
+        const timeout = new Promise((_, r) => (timer = setTimeout(() => r(new Error("timeout")), timeOutMs)));
         try {
             return await Promise.race([joinProm, timeout]);
             // add sessionid sotorage
         } catch (err) {
-            joinProm.then(r => r.leave()).catch(_=>_);
+            joinProm.then(r => r.leave()).catch(_ => _);
             throw err;
         } finally {
             clearTimeout(timer);
@@ -287,8 +314,8 @@ class ColyseusManager {
     }
 
     /**
-     * 
-     * @param {string} token JWT Token 
+     *
+     * @param {string} token JWT Token
      * @returns {string} The userid
      */
     token2uID(token) {
@@ -301,23 +328,18 @@ class ColyseusManager {
     }
 
     /**
-     * @param {string} roomName 
-     * @param {!Object=} options 
+     * @param {string} roomName
+     * @param {!Object=} options
      * @param {number=} timeOutMs
      */
     async joinWorld(roomName, options = {}, timeOutMs = 10_000) {
         try {
             this.room = await this.joinOnce(this.client, roomName, options, timeOutMs);
         } catch (err) {
-            if((err?.code === 4411 || err?.message?.includes("farm_owner_missing")) && !options.farmOwnerId) {
+            if ((err?.code === 4411 || err?.message?.includes("farm_owner_missing")) && !options.farmOwnerId) {
                 const farmOwnerId = this.token2uID(this.token);
                 if (farmOwnerId) {
-                    this.room = await this.joinOnce(
-                        this.client,
-                        roomName,
-                        { ...options, farmOwnerId },
-                        timeoutMs
-                    );
+                    this.room = await this.joinOnce(this.client, roomName, { ...options, farmOwnerId }, timeoutMs);
                 }
             }
             throw err;
@@ -325,7 +347,7 @@ class ColyseusManager {
 
         this.callbacks = Callbacks.get(this.room);
 
-        this.bindRoomListeners();   
+        this.bindRoomListeners();
     }
 }
 
