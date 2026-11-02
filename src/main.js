@@ -127,8 +127,8 @@ class ColyseusManager {
         const sprinting = this.inputmanager.keysPressed.get("ShiftLeft");
         const speed = sprinting ? terraCfg.PLAYER_SPRINT_SPEED : terraCfg.PLAYER_SPEED;
 
-        meDot.x += h * speed * terraCfg.FIXED_DT;
-        meDot.y += v * speed * terraCfg.FIXED_DT;
+        meDot.x += h * speed * terraCfg.FIXED_DT / Math.hypot(h, v);
+        meDot.y += v * speed * terraCfg.FIXED_DT / Math.hypot(h, v);
 
         const now = performance.now();
         if (this.isMoving || h || v) {
