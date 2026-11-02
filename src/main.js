@@ -1,5 +1,5 @@
 import { Client, Callbacks, Room } from "@colyseus/sdk";
-import env from "./env.js";
+// import env from "./env.js";
 import setupPixi from "./setupPixi.js";
 import { Application, Container, Graphics, GraphicsContext, triangulateWithHoles } from "pixi.js";
 import { DefaultMap, DotMap } from "./extrastuff.js";
@@ -105,7 +105,7 @@ class ColyseusManager {
 
         this.client = new Client("ws" + location.origin.slice(4));
         this.terraMaps = new LazyAsyncGetTerraMap();
-        this.token = env.token;
+        this.token = localStorage.getItem("token") ?? prompt("What is your terra token? Please see the project readme to get instructions on how to obtain it.");
         this.inputmanager = new InputManager();
 
         ({ app: this.app, world: this.world, updateMap: this.updateMap } = await setupPixi(this.terraMaps));
