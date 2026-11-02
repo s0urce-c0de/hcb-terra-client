@@ -35,6 +35,7 @@ export default {
     }),
   ],
   devServer: {
+    allowedHosts: ['localhost', 'terra-client.s0urce-c0de.hackclub.app'],
     client: false, 
     webSocketServer: false, 
     hot: false,
