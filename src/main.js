@@ -1,7 +1,7 @@
 import { Client, Callbacks, Room } from "@colyseus/sdk";
 // import env from "./env.js";
 import setupPixi from "./setupPixi.js";
-import { Application, Container, Graphics, GraphicsContext, triangulateWithHoles } from "pixi.js";
+import { Application, Container, Graphics, GraphicsContext } from "pixi.js";
 import { DefaultMap, DotMap } from "./extrastuff.js";
 import { LazyAsyncGetTerraMap } from "./types.js";
 import { StateCallbackStrategy } from "@colyseus/schema";
