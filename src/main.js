@@ -83,6 +83,8 @@ class ColyseusManager {
     seq = 0;
     /** @type {number} */
     lastSendWhen = 0;
+    /** @type {boolean} */
+    isMoving = false;
 
     constructor() {
         this._constructor();
@@ -99,7 +101,7 @@ class ColyseusManager {
         ({ app: this.app, world: this.world, updateMap: this.updateMap } = await setupPixi(this.terraMaps));
 
         this.app.ticker.maxFPS = terraCfg.TICK_RATE;
-        this.app.ticker.maxFPS = terraCfg.TICK_RATE;
+        this.app.ticker.minFPS = terraCfg.TICK_RATE;
         this.app.ticker.add(() => this.movementTick());
 
         this.joinWorld("world").catch(err => {
@@ -122,27 +124,33 @@ class ColyseusManager {
         if (!meDot) return;
 
         const { h, v } = this.inputmanager.getDirection();
-        const sprinting = true; // this.inputmanager.keysPressed.get("ShiftLeft");
+        const sprinting = this.inputmanager.keysPressed.get("ShiftLeft");
         const speed = sprinting ? terraCfg.PLAYER_SPRINT_SPEED : terraCfg.PLAYER_SPEED;
 
         meDot.x += h * speed * terraCfg.FIXED_DT;
         meDot.y += v * speed * terraCfg.FIXED_DT;
 
         const now = performance.now();
-        if (now - this.lastSendWhen >= (1000 / terraCfg.CLIENT_CMD_RATE)) {
-            this.seq++;
-            this.room.send("move", {
-                x: h,
-                y: v,
-                seq: this.seq,
-                posX: meDot.x,
-                posZ: meDot.y,
-                sprinting
-            })
+        if (this.isMoving || h || v) {
+            if ((now - this.lastSendWhen >= (1000 / terraCfg.CLIENT_CMD_RATE))) {
+                this.seq++;
+                this.room.send("move", {
+                    x: h,
+                    z: v,
+                    seq: this.seq,
+                    posX: meDot.x,
+                    posZ: meDot.y,
+                    sprinting
+                });
+                this.lastSendWhen = now;
+
+                this.isMoving = !!(h || v);
+            }
         }
     }
 
     fixLoc(servX, servZ) {
+        console.log(servX, servZ)
         const meDot = this.dots?.get(this.room?.sessionId);
         if(!meDot) return;
 
@@ -302,7 +310,7 @@ class ColyseusManager {
             this.room = await this.joinOnce(this.client, roomName, options, timeOutMs);
         } catch (err) {
             if((err?.code === 4411 || err?.message?.includes("farm_owner_missing")) && !options.farmOwnerId) {
-                const farmOwnerId = token2uID(this.token);
+                const farmOwnerId = this.token2uID(this.token);
                 if (farmOwnerId) {
                     this.room = await this.joinOnce(
                         this.client,
