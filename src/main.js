@@ -103,7 +103,7 @@ class ColyseusManager {
     async _constructor() {
         if (location.href.slice(0, 4) != "http") throw new Error("This is not supported on non HTTP(S) pages!");
 
-        this.client = new Client("ws" + location.origin.slice(4));
+        this.client = new Client("wss://game.terra.hackclub.com/");
         this.terraMaps = new LazyAsyncGetTerraMap();
         this.token = localStorage.getItem("token") ?? prompt("What is your terra token? Please see the project readme to get instructions on how to obtain it.");
         this.inputmanager = new InputManager();
@@ -159,6 +159,11 @@ class ColyseusManager {
         }
     }
 
+    /**
+     * @param {number} servX 
+     * @param {number} servZ 
+     * @returns 
+     */
     fixLoc(servX, servZ) {
         console.log(servX, servZ);
         const meDot = this.dots?.get(this.room?.sessionId);
